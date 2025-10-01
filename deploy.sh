@@ -23,14 +23,25 @@ printf "\n${C_CYAN}${BOLD}🚀 N4 Cloud Run — One-Click Deploy${RESET} ${C_GRE
 hr
 
 # =================== Secrets via ENV / .env ===================
-# Load .env if present (TELEGRAM_TOKEN / TELEGRAM_CHAT_ID)
-if [[ -f .env ]]; then
-  set -a; source ./.env; set +a
-  ok ".env loaded"
-fi
-# Read from ENV only (no hardcode)
 TELEGRAM_TOKEN="${TELEGRAM_TOKEN:-}"
 TELEGRAM_CHAT_ID="${TELEGRAM_CHAT_ID:-}"
+
+if [[ -z "${TELEGRAM_TOKEN}" || -z "${TELEGRAM_CHAT_ID}" ]]; then
+  if [[ -f .env ]]; then
+    # Only fill missing values from .env
+    # shellcheck disable=SC1091
+    set -a; source ./.env; set +a
+    # re-take with fallback but keep inline if already set
+    TELEGRAM_TOKEN="${TELEGRAM_TOKEN:-${TELEGRAM_TOKEN}}"
+    TELEGRAM_CHAT_ID="${TELEGRAM_CHAT_ID:-${TELEGRAM_CHAT_ID}}"
+    ok ".env loaded (only for missing vars)"
+  fi
+fi
+
+# show a gentle hint (not fatal)
+if [[ -z "${TELEGRAM_TOKEN}" || -z "${TELEGRAM_CHAT_ID}" ]]; then
+  warn "Telegram not fully configured (you can pass inline: TELEGRAM_TOKEN=... TELEGRAM_CHAT_ID=...)"
+fi
 
 # =================== Project ===================
 sec "Project"
@@ -110,14 +121,14 @@ PORT="${PORT:-8080}"
 
 # =================== Keys ===================
 TROJAN_PASS="Nanda"
-TROJAN_TAG="N4%20GCP%20Hour%20Key"
+TROJAN_TAG="GCP TROJAN"
 TROJAN_PATH="%2F%40n4vpn"
 VLESS_UUID="0c890000-4733-b20e-067f-fc341bd20000"
 VLESS_PATH="%2FN4VPN"
-VLESS_TAG="N4%20GCP%20VLESS"
+VLESS_TAG="GCP VLESS WS"
 VLESSGRPC_UUID="0c890000-4733-b20e-067f-fc341bd20000"
 VLESSGRPC_SVC="n4vpnfree-grpc"
-VLESSGRPC_TAG="GCP-VLESS-GRPC"
+VLESSGRPC_TAG="GCP VLESS GRPC"
 
 # =================== Service name ===================
 read -rp "   Service name [default: ${SERVICE}]: " _svc || true
@@ -180,7 +191,7 @@ printf "   ${C_ORG}👉 %s${RESET}\n" "${URI}"
 hr
 
 # =================== Telegram Push (only if both envs exist) ===================
-if [[ -n "${TELEGRAM_TOKEN}" && -n "${TELEGRAM_CHAT_ID}" ]]; then
+if [[ -n "${TELEGRAM_TOKEN:-}" && -n "${TELEGRAM_CHAT_ID:-}" ]]; then
   sec "Telegram"
   HTML_MSG=$(
     cat <<EOF
@@ -198,7 +209,7 @@ EOF
        -d "parse_mode=HTML" >/dev/null \
     && ok "Telegram message sent"
 else
-  warn "Telegram not configured (set TELEGRAM_TOKEN & TELEGRAM_CHAT_ID via ENV or .env)"
+  warn "Telegram not configured (inline ENV or .env)"
 fi
 
 printf "\n${C_GREEN}${BOLD}✨ All done. Enjoy!${RESET}\n"
